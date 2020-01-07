@@ -49,7 +49,7 @@ type FSM struct {
 
 	// transition is the internal transition functions used either directly
 	// or when Transition is called in an asynchronous state transition.
-	transition func()
+	transition func() error
 	// transitionerObj calls the FSM's transition() function.
 	transitionerObj transitioner
 
@@ -184,7 +184,7 @@ func NewFSM(initial string, events []EventDesc, callbacks map[string]Callback) *
 		default:
 			target = name
 			if _, ok := allStates[target]; ok {
-				callbackType = callbackEnterState
+				callbackType = callbackOnState
 			} else if _, ok := allEvents[target]; ok {
 				callbackType = callbackAfterEvent
 			}
@@ -300,13 +300,29 @@ func (f *FSM) Event(event string, args ...interface{}) error {
 	}
 
 	// Setup the transition, call it later.
-	f.transition = func() {
+	f.transition = func() error {
+
+		if err = f.onStateCallbacks(e); err != nil {
+			return err
+		}
+
+		if e.Err != nil{
+			return nil
+		}
+
+		if e.canceled {
+			e.Err = CanceledError{e.Err}
+			return nil
+		}
+
 		f.stateMu.Lock()
 		f.current = dst
 		f.stateMu.Unlock()
 
 		f.enterStateCallbacks(e)
 		f.afterEventCallbacks(e)
+
+		return nil
 	}
 
 	if err = f.leaveStateCallbacks(e); err != nil {
@@ -320,6 +336,7 @@ func (f *FSM) Event(event string, args ...interface{}) error {
 	f.stateMu.RUnlock()
 	err = f.doTransition()
 	f.stateMu.RLock()
+
 	if err != nil {
 		return InternalError{}
 	}
@@ -351,9 +368,9 @@ func (t transitionerStruct) transition(f *FSM) error {
 	if f.transition == nil {
 		return NotInTransitionError{}
 	}
-	f.transition()
+	err := f.transition()
 	f.transition = nil
-	return nil
+	return err
 }
 
 // beforeEventCallbacks calls the before_ callbacks, first the named then the
@@ -407,6 +424,17 @@ func (f *FSM) enterStateCallbacks(e *Event) {
 	}
 }
 
+func (f *FSM) onStateCallbacks(e *Event) error {
+	if fn, ok := f.callbacks[cKey{f.current, callbackOnState}]; ok {
+		fn(e)
+	}
+	if fn, ok := f.callbacks[cKey{"", callbackOnState}]; ok {
+		fn(e)
+	}
+
+	return nil
+}
+
 // afterEventCallbacks calls the after_ callbacks, first the named then the
 // general version.
 func (f *FSM) afterEventCallbacks(e *Event) {
@@ -423,6 +451,7 @@ const (
 	callbackBeforeEvent
 	callbackLeaveState
 	callbackEnterState
+	callbackOnState
 	callbackAfterEvent
 )
 
