@@ -296,7 +296,9 @@ func (f *FSM) Event(event string, args ...interface{}) error {
 
 	if f.current == dst {
 		f.afterEventCallbacks(e)
-		return NoTransitionError{e.Err}
+		if e.Err != nil {
+			return NoTransitionError{e.Err}
+		}
 	}
 
 	// Setup the transition, call it later.
@@ -306,7 +308,7 @@ func (f *FSM) Event(event string, args ...interface{}) error {
 			return err
 		}
 
-		if e.Err != nil{
+		if e.Err != nil {
 			return nil
 		}
 
