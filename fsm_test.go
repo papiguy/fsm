@@ -615,7 +615,10 @@ func TestNoTransition(t *testing.T) {
 		Callbacks{},
 	)
 	err := fsm.Event("run")
-	if _, ok := err.(NoTransitionError); !ok {
+	if err == nil {
+		return
+	}
+	if _, ok := err.(NoTransitionError); ok {
 		t.Error("expected 'NoTransitionError'")
 	}
 }

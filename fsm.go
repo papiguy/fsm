@@ -317,12 +317,19 @@ func (f *FSM) Event(event string, args ...interface{}) error {
 			return nil
 		}
 
+		dontSendAfterEvent := false
+		if f.current == dst {
+			dontSendAfterEvent = true
+		}
+
 		f.stateMu.Lock()
 		f.current = dst
 		f.stateMu.Unlock()
 
 		f.enterStateCallbacks(e)
-		f.afterEventCallbacks(e)
+		if ! dontSendAfterEvent {
+			f.afterEventCallbacks(e)
+		}
 
 		return nil
 	}
@@ -419,6 +426,9 @@ func (f *FSM) leaveStateCallbacks(e *Event) error {
 // general version.
 func (f *FSM) enterStateCallbacks(e *Event) {
 	if fn, ok := f.callbacks[cKey{f.current, callbackEnterState}]; ok {
+		fn(e)
+	}
+	if fn, ok := f.callbacks[cKey{f.current, callbackOnState}]; ok {
 		fn(e)
 	}
 	if fn, ok := f.callbacks[cKey{"", callbackEnterState}]; ok {
