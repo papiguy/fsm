@@ -16,6 +16,7 @@ package fsm
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 	"testing"
@@ -860,10 +861,64 @@ func ExampleFSM_OnStateTransitionCancelled() {
 		},
 	)
 	fmt.Println(fsm.Current())
-	err:= fsm.Event("open")
+	err := fsm.Event("open")
 
 	if err == nil {
 		fmt.Println("Expected the state to be canceled")
+	}
+
+	fmt.Println(fsm.Current())
+	// Output:
+	// closed
+	// closed
+}
+
+func ExampleFSM_MultipleEventOnSameState() {
+	counter := 0
+	fsm := NewFSM(
+		"Idle",
+		Events{
+			{Name: "call", Src: []string{"Idle"}, Dst: "CallInProgress"},
+			{Name: "talking", Src: []string{"CallInProgress"}, Dst: "CallInProgress"},
+			{Name: "Done", Src: []string{"CallInProgress"}, Dst: "Idle"},
+		},
+		Callbacks{
+			"Idle": func(e *Event) {
+				if e.Event == "call" {
+					fmt.Println("Taking call")
+				}
+			},
+			"CallInProgress": func(e *Event) {
+				if e.Event == "talking" {
+					counter = counter + 1
+					fmt.Println("on call")
+				} else if e.Event == "Done" {
+					fmt.Println("Call done")
+				}
+			},
+		},
+	)
+	fmt.Println(fsm.Current())
+	err := fsm.Event("call")
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = fsm.Event("talking")
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = fsm.Event("Done")
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if counter > 1 {
+		log.Fatal("Counter should be 1 but it is :", counter)
 	}
 
 	fmt.Println(fsm.Current())
