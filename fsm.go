@@ -65,21 +65,27 @@ type FSM struct {
 // the transition. If the FSM is in one of the source states it will end up in
 // the specified destination state, calling all defined callbacks as it goes.
 type EventDesc struct {
-	// Name is the event name used when calling for a transition.
-	Name string
+	// EvtName is the event name used when calling for a transition.
+	EvtName string
 
-	// Src is a slice of source states that the FSM must be in to perform a
+	// SrcStates is a slice of source states that the FSM must be in to perform a
 	// state transition.
-	Src []string
+	SrcStates []string
 
-	// Dst is the destination state that the FSM will be in if the transition
+	// DstStates is the destination state that the FSM will be in if the transition
 	// succeds.
-	Dst string
+	DstStates string
 }
+
+const ActionBeforeEvent = "BeforeEvent"
+const ActionLeavingState = "LeavingState"
+const ActionEnteringState = "EnteringState"
+const ActionOnEvent = "OnEvent"
+const ActionAfterEvent = "AfterEvent"
 
 // Callback is a function type that callbacks should use. Event is the current
 // event info as the callback happens.
-type Callback func(*Event)
+type Callback func(string, *Event)
 
 // Events is a shorthand for defining the transition map in NewFSM.
 type Events []EventDesc
@@ -91,7 +97,7 @@ type Callbacks map[string]Callback
 //
 // The events and transitions are specified as a slice of Event structs
 // specified as Events. Each Event is mapped to one or more internal
-// transitions from Event.Src to Event.Dst.
+// transitions from Event.SrcStates to Event.DstStates.
 //
 // Callbacks are added as a map specified as Callbacks where the key is parsed
 // as the callback event as follows, and called in the same order:
@@ -135,12 +141,12 @@ func NewFSM(initial string, events []EventDesc, callbacks map[string]Callback) *
 	allEvents := make(map[string]bool)
 	allStates := make(map[string]bool)
 	for _, e := range events {
-		for _, src := range e.Src {
-			f.transitions[eKey{e.Name, src}] = e.Dst
+		for _, src := range e.SrcStates {
+			f.transitions[eKey{e.EvtName, src}] = e.DstStates
 			allStates[src] = true
-			allStates[e.Dst] = true
+			allStates[e.DstStates] = true
 		}
-		allEvents[e.Name] = true
+		allEvents[e.EvtName] = true
 	}
 
 	// Map all callbacks to events/states.
@@ -294,15 +300,13 @@ func (f *FSM) Event(event string, args ...interface{}) error {
 		return err
 	}
 
-	if f.current == dst {
-		f.afterEventCallbacks(e)
-		if e.Err != nil {
-			return NoTransitionError{e.Err}
-		}
-	}
-
 	// Setup the transition, call it later.
 	f.transition = func() error {
+
+		dontSendStateCallbacks := false
+		if f.current == dst {
+			dontSendStateCallbacks = true
+		}
 
 		if err = f.onStateCallbacks(e); err != nil {
 			return err
@@ -317,28 +321,25 @@ func (f *FSM) Event(event string, args ...interface{}) error {
 			return nil
 		}
 
-		dontSendAfterEvent := false
-		if f.current == dst {
-			dontSendAfterEvent = true
-		}
-
 		f.stateMu.Lock()
 		f.current = dst
 		f.stateMu.Unlock()
 
-		f.enterStateCallbacks(e)
-		if ! dontSendAfterEvent {
-			f.afterEventCallbacks(e)
+		if !dontSendStateCallbacks {
+			f.enterStateCallbacks(e)
 		}
+		f.afterEventCallbacks(e)
 
 		return nil
 	}
 
-	if err = f.leaveStateCallbacks(e); err != nil {
-		if _, ok := err.(CanceledError); ok {
-			f.transition = nil
+	if f.current != dst {
+		if err = f.leaveStateCallbacks(e); err != nil {
+			if _, ok := err.(CanceledError); ok {
+				f.transition = nil
+			}
+			return err
 		}
-		return err
 	}
 
 	// Perform the rest of the transition, if not asynchronous.
@@ -386,13 +387,13 @@ func (t transitionerStruct) transition(f *FSM) error {
 // general version.
 func (f *FSM) beforeEventCallbacks(e *Event) error {
 	if fn, ok := f.callbacks[cKey{e.Event, callbackBeforeEvent}]; ok {
-		fn(e)
+		fn(ActionBeforeEvent, e)
 		if e.canceled {
 			return CanceledError{e.Err}
 		}
 	}
 	if fn, ok := f.callbacks[cKey{"", callbackBeforeEvent}]; ok {
-		fn(e)
+		fn(ActionBeforeEvent, e)
 		if e.canceled {
 			return CanceledError{e.Err}
 		}
@@ -404,7 +405,7 @@ func (f *FSM) beforeEventCallbacks(e *Event) error {
 // general version.
 func (f *FSM) leaveStateCallbacks(e *Event) error {
 	if fn, ok := f.callbacks[cKey{f.current, callbackLeaveState}]; ok {
-		fn(e)
+		fn(ActionLeavingState, e)
 		if e.canceled {
 			return CanceledError{e.Err}
 		} else if e.async {
@@ -412,7 +413,7 @@ func (f *FSM) leaveStateCallbacks(e *Event) error {
 		}
 	}
 	if fn, ok := f.callbacks[cKey{"", callbackLeaveState}]; ok {
-		fn(e)
+		fn(ActionLeavingState, e)
 		if e.canceled {
 			return CanceledError{e.Err}
 		} else if e.async {
@@ -426,22 +427,24 @@ func (f *FSM) leaveStateCallbacks(e *Event) error {
 // general version.
 func (f *FSM) enterStateCallbacks(e *Event) {
 	if fn, ok := f.callbacks[cKey{f.current, callbackEnterState}]; ok {
-		fn(e)
+		fn(ActionEnteringState, e)
 	}
+
 	if fn, ok := f.callbacks[cKey{f.current, callbackOnState}]; ok {
-		fn(e)
+		fn(ActionEnteringState, e)
 	}
+
 	if fn, ok := f.callbacks[cKey{"", callbackEnterState}]; ok {
-		fn(e)
+		fn(ActionEnteringState, e)
 	}
 }
 
 func (f *FSM) onStateCallbacks(e *Event) error {
 	if fn, ok := f.callbacks[cKey{f.current, callbackOnState}]; ok {
-		fn(e)
+		fn(ActionOnEvent, e)
 	}
 	if fn, ok := f.callbacks[cKey{"", callbackOnState}]; ok {
-		fn(e)
+		fn(ActionOnEvent, e)
 	}
 
 	return nil
@@ -451,10 +454,10 @@ func (f *FSM) onStateCallbacks(e *Event) error {
 // general version.
 func (f *FSM) afterEventCallbacks(e *Event) {
 	if fn, ok := f.callbacks[cKey{e.Event, callbackAfterEvent}]; ok {
-		fn(e)
+		fn(ActionAfterEvent, e)
 	}
 	if fn, ok := f.callbacks[cKey{"", callbackAfterEvent}]; ok {
-		fn(e)
+		fn(ActionAfterEvent, e)
 	}
 }
 
