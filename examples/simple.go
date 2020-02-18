@@ -4,15 +4,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/looplab/fsm"
+	"github.com/papiguy/fsm"
 )
 
 func main() {
 	fsm := fsm.NewFSM(
 		"closed",
 		fsm.Events{
-			{Name: "open", Src: []string{"closed"}, Dst: "open"},
-			{Name: "close", Src: []string{"open"}, Dst: "closed"},
+			{EvtName: "open", SrcStates: []string{"closed"}, DstStates: "open"},
+			{EvtName: "close", SrcStates: []string{"open"}, DstStates: "closed"},
 		},
 		fsm.Callbacks{},
 	)

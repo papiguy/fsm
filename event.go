@@ -22,10 +22,10 @@ type Event struct {
 	// Event is the event name.
 	Event string
 
-	// Src is the state before the transition.
+	// SrcStates is the state before the transition.
 	Src string
 
-	// Dst is the state after the transition.
+	// DstStates is the state after the transition.
 	Dst string
 
 	// Err is an optional error that can be returned from a callback.

@@ -4,30 +4,30 @@ package main
 
 import (
 	"fmt"
-	"github.com/looplab/fsm"
+	"github.com/papiguy/fsm"
 )
 
 func main() {
 	fsm := fsm.NewFSM(
 		"idle",
 		fsm.Events{
-			{Name: "scan", Src: []string{"idle"}, Dst: "scanning"},
-			{Name: "working", Src: []string{"scanning"}, Dst: "scanning"},
-			{Name: "situation", Src: []string{"scanning"}, Dst: "scanning"},
-			{Name: "situation", Src: []string{"idle"}, Dst: "idle"},
-			{Name: "finish", Src: []string{"scanning"}, Dst: "idle"},
+			{EvtName: "scan", SrcStates: []string{"idle"}, DstStates: "scanning"},
+			{EvtName: "working", SrcStates: []string{"scanning"}, DstStates: "scanning"},
+			{EvtName: "situation", SrcStates: []string{"scanning"}, DstStates: "scanning"},
+			{EvtName: "situation", SrcStates: []string{"idle"}, DstStates: "idle"},
+			{EvtName: "finish", SrcStates: []string{"scanning"}, DstStates: "idle"},
 		},
 		fsm.Callbacks{
-			"scan": func(e *fsm.Event) {
+			"scan": func(action string, e *fsm.Event) {
 				fmt.Println("after_scan: " + e.FSM.Current())
 			},
-			"working": func(e *fsm.Event) {
+			"working": func(action string, e *fsm.Event) {
 				fmt.Println("working: " + e.FSM.Current())
 			},
-			"situation": func(e *fsm.Event) {
+			"situation": func(action string, e *fsm.Event) {
 				fmt.Println("situation: " + e.FSM.Current())
 			},
-			"finish": func(e *fsm.Event) {
+			"finish": func(action string, e *fsm.Event) {
 				fmt.Println("finish: " + e.FSM.Current())
 			},
 		},
