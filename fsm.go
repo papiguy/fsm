@@ -478,7 +478,6 @@ func (f *FSM) GetDotRep(name string) string {
 			nodes[state].Attr("shape", "circle")
 		}
 		nodes[state].Attr("color", "black")
-		g.AddToSameRank("g", nodes[state])
 	}
 
 	for ekey, destination := range f.transitions {
