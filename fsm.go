@@ -464,7 +464,7 @@ func (f *FSM) afterEventCallbacks(e *Event) {
 	}
 }
 
-func (f *FSM) getPythonGraph() string {
+func (f *FSM) GetPythonGraph() string {
 
 	g := dot.NewGraph(dot.Directed)
 	nodes := make(map[string]dot.Node, len(f.allStates))
