@@ -467,22 +467,42 @@ func (f *FSM) afterEventCallbacks(e *Event) {
 func (f *FSM) GetDotRep(name string) string {
 
 	g := dot.NewGraph(dot.Directed)
+	g.ID(name)
 	g.Label(name)
 	nodes := make(map[string]dot.Node, len(f.allStates))
-	g.Attr("size", "8,5")
+	g.Attr("size", "7.5,10")
+
+	g.Attr("rankdir", "TB")
+	g.Attr("splines", "true")
+	g.Attr("overlap", "false")
+	g.Attr("ratio", "auto")
+	g.Attr("ranksep", ".75")
+	g.Attr("concentrate", "false")
+	g.Attr("ordering", "out")
+
+	nodes[f.current] = g.Node(f.current)
+	nodes[f.current].Attr("shape", "doublecircle")
+	nodes[f.current].Attr("color", "black")
+	nodes[f.current].Attr("fixedsize","true")
+	nodes[f.current].Attr("width","1.5")
+
 	for state, _ := range f.allStates {
-		nodes[state] = g.Node(state)
 		if state == f.current {
-			nodes[state].Attr("shape", "doublecircle")
-		} else {
-			nodes[state].Attr("shape", "circle")
+			continue
 		}
+		nodes[state] = g.Node(state)
+		nodes[state].Attr("shape", "circle")
 		nodes[state].Attr("color", "black")
+		nodes[state].Attr("fixedsize","true")
+		nodes[state].Attr("width","1.5")
 	}
+
+
 
 	for ekey, destination := range f.transitions {
 		g.Edge(nodes[ekey.src], nodes[destination], ekey.event).Attr("color", "blue")
 	}
+
 
 	return g.String()
 }
