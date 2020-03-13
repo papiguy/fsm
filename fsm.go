@@ -464,13 +464,21 @@ func (f *FSM) afterEventCallbacks(e *Event) {
 	}
 }
 
-func (f *FSM) GetPythonGraph() string {
+func (f *FSM) GetDotRep(name string) string {
 
 	g := dot.NewGraph(dot.Directed)
+	g.Label(name)
 	nodes := make(map[string]dot.Node, len(f.allStates))
-
+	g.Attr("size", "8,5")
 	for state, _ := range f.allStates {
 		nodes[state] = g.Node(state)
+		if state == f.current {
+			nodes[state].Attr("shape", "doublecircle")
+		} else {
+			nodes[state].Attr("shape", "circle")
+		}
+		nodes[state].Attr("color", "black")
+		g.AddToSameRank("g", nodes[state])
 	}
 
 	for ekey, destination := range f.transitions {
