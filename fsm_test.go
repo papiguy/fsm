@@ -1005,3 +1005,80 @@ func ExampleFSM_OnStateTransitionSameEvent() {
 	//state3 -> event2 received
 	//state3
 }
+
+
+func ExampleFSM_OnStateTransitionSameEvent2() {
+	fsm := NewFSM(
+		"state1",
+		Events{
+			{EvtName: "event1", SrcStates: []string{"state1"}, DstStates: "state2"},
+			{EvtName: "event1", SrcStates: []string{"state2"}, DstStates: "state2"},
+			{EvtName: "event2", SrcStates: []string{"state2"}, DstStates: "state3"},
+			{EvtName: "event2", SrcStates: []string{"state3"}, DstStates: "state3"},
+		},
+		Callbacks{
+			"state1": func(action string, e *Event) {
+				if action != ActionOnEvent {
+					return
+				}
+				if e.Event == "event1" {
+					fmt.Println("state1 -> event1 received")
+				}
+			},
+			"state2": func(action string, e *Event) {
+				if action != ActionOnEvent {
+					return
+				}
+
+				if e.Event == "event1" {
+					fmt.Println("state2 -> event1 received")
+				}
+				if e.Event == "event2" {
+					fmt.Println("state2 -> event2 received")
+				}
+			},
+			"state3": func(action string, e *Event) {
+				if action != ActionOnEvent {
+					return
+				}
+
+				if e.Event == "event2" {
+					fmt.Println("state3 -> event2 received")
+				}
+			},
+		},
+	)
+
+	fsm.Event("event1")
+	fmt.Println(fsm.Current())
+	fsm.Event("event1")
+	fmt.Println(fsm.Current())
+	fsm.Event("event1")
+	fmt.Println(fsm.Current())
+	fsm.Event("event1")
+	fmt.Println(fsm.Current())
+	fsm.Event("event2")
+	fmt.Println(fsm.Current())
+	fsm.Event("event2")
+	fmt.Println(fsm.Current())
+	fsm.Event("event2")
+	fmt.Println(fsm.Current())
+
+
+
+	// Output:
+	// state1 -> event1 received
+	//state2
+	//state2 -> event1 received
+	//state2
+	//state2 -> event1 received
+	//state2
+	//state2 -> event1 received
+	//state2
+	//state2 -> event2 received
+	//state3
+	//state3 -> event2 received
+	//state3
+	//state3 -> event2 received
+	//state3
+}

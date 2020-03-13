@@ -25,6 +25,7 @@
 package fsm
 
 import (
+	"github.com/emicklei/dot"
 	"strings"
 	"sync"
 )
@@ -38,6 +39,8 @@ type transitioner interface {
 //
 // It has to be created with NewFSM to function properly.
 type FSM struct {
+	allStates map[string]bool
+
 	// current is the state that the FSM is currently in.
 	current string
 
@@ -139,12 +142,12 @@ func NewFSM(initial string, events []EventDesc, callbacks map[string]Callback) *
 
 	// Build transition map and store sets of all events and states.
 	allEvents := make(map[string]bool)
-	allStates := make(map[string]bool)
+	f.allStates = make(map[string]bool)
 	for _, e := range events {
 		for _, src := range e.SrcStates {
 			f.transitions[eKey{e.EvtName, src}] = e.DstStates
-			allStates[src] = true
-			allStates[e.DstStates] = true
+			f.allStates[src] = true
+			f.allStates[e.DstStates] = true
 		}
 		allEvents[e.EvtName] = true
 	}
@@ -168,7 +171,7 @@ func NewFSM(initial string, events []EventDesc, callbacks map[string]Callback) *
 			if target == "state" {
 				target = ""
 				callbackType = callbackLeaveState
-			} else if _, ok := allStates[target]; ok {
+			} else if _, ok := f.allStates[target]; ok {
 				callbackType = callbackLeaveState
 			}
 		case strings.HasPrefix(name, "enter_"):
@@ -176,7 +179,7 @@ func NewFSM(initial string, events []EventDesc, callbacks map[string]Callback) *
 			if target == "state" {
 				target = ""
 				callbackType = callbackEnterState
-			} else if _, ok := allStates[target]; ok {
+			} else if _, ok := f.allStates[target]; ok {
 				callbackType = callbackEnterState
 			}
 		case strings.HasPrefix(name, "after_"):
@@ -189,7 +192,7 @@ func NewFSM(initial string, events []EventDesc, callbacks map[string]Callback) *
 			}
 		default:
 			target = name
-			if _, ok := allStates[target]; ok {
+			if _, ok := f.allStates[target]; ok {
 				callbackType = callbackOnState
 			} else if _, ok := allEvents[target]; ok {
 				callbackType = callbackAfterEvent
@@ -459,6 +462,22 @@ func (f *FSM) afterEventCallbacks(e *Event) {
 	if fn, ok := f.callbacks[cKey{"", callbackAfterEvent}]; ok {
 		fn(ActionAfterEvent, e)
 	}
+}
+
+func (f *FSM) getPythonGraph() string {
+
+	g := dot.NewGraph(dot.Directed)
+	nodes := make(map[string]dot.Node, len(f.allStates))
+
+	for state, _ := range f.allStates {
+		nodes[state] = g.Node(state)
+	}
+
+	for ekey, destination := range f.transitions {
+		g.Edge(nodes[ekey.src], nodes[destination], ekey.event).Attr("color", "blue")
+	}
+
+	return g.String()
 }
 
 const (
