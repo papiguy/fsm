@@ -470,7 +470,6 @@ func (f *FSM) GetDotRep(name string) string {
 	g.ID(name)
 	g.Label(name)
 	nodes := make(map[string]dot.Node, len(f.allStates))
-	g.Attr("size", "7.5,10")
 
 	g.Attr("rankdir", "TB")
 	g.Attr("splines", "true")
@@ -481,10 +480,10 @@ func (f *FSM) GetDotRep(name string) string {
 	g.Attr("ordering", "out")
 
 	nodes[f.current] = g.Node(f.current)
-	nodes[f.current].Attr("shape", "doublecircle")
+	nodes[f.current].Attr("shape", "Mrecord")
 	nodes[f.current].Attr("color", "black")
 	nodes[f.current].Attr("fixedsize","true")
-	nodes[f.current].Attr("width","1.5")
+	nodes[f.current].Attr("width","2.5")
 
 	for state, _ := range f.allStates {
 		if state == f.current {
